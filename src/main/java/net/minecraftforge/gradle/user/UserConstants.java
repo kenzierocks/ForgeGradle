@@ -17,7 +17,6 @@ public final class UserConstants
 
     static final String        FORGE_JAVADOC_URL     = Constants.FORGE_MAVEN + "/net/minecraftforge/forge/{API_VERSION}/forge-{API_VERSION}-javadoc.zip";
 
-    static final String        NATIVES_DIR           = "{CACHE_DIR}/minecraft/net/minecraft/minecraft_natives/{MC_VERSION}";
     static final String        NATIVES_DIR_OLD       = "{BUILD_DIR}/natives";
     static final String        SOURCES_DIR           = "{BUILD_DIR}/sources";
 
@@ -33,6 +32,7 @@ public final class UserConstants
 
     public static final String DEOBF_SRG_SRG         = "{SRG_DIR}/notch-srg.srg";
     public static final String DEOBF_MCP_SRG         = "{SRG_DIR}/notch-mcp.srg";
+    public static final String DEOBF_SRG_MCP_SRG     = "{SRG_DIR}/srg-mcp.srg";
     public static final String REOBF_SRG             = "{SRG_DIR}/mcp-srg.srg";
     public static final String REOBF_NOTCH_SRG       = "{SRG_DIR}/mcp-notch.srg";
     public static final String EXC_SRG               = "{SRG_DIR}/srg.exc";

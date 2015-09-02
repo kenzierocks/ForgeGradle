@@ -9,6 +9,7 @@ import groovy.lang.Closure;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -23,7 +24,13 @@ import net.minecraftforge.gradle.common.BasePlugin;
 import net.minecraftforge.gradle.common.Constants;
 import net.minecraftforge.gradle.delayed.DelayedFile;
 import net.minecraftforge.gradle.json.JsonFactory;
-import net.minecraftforge.gradle.tasks.*;
+import net.minecraftforge.gradle.tasks.CreateStartTask;
+import net.minecraftforge.gradle.tasks.DecompileTask;
+import net.minecraftforge.gradle.tasks.ExtractConfigTask;
+import net.minecraftforge.gradle.tasks.GenSrgTask;
+import net.minecraftforge.gradle.tasks.MergeJarsTask;
+import net.minecraftforge.gradle.tasks.ProcessJarTask;
+import net.minecraftforge.gradle.tasks.RemapSourcesTask;
 import net.minecraftforge.gradle.tasks.abstractutil.ExtractTask;
 import net.minecraftforge.gradle.tasks.user.SourceCopyTask;
 import net.minecraftforge.gradle.tasks.user.reobf.ArtifactSpec;
@@ -46,7 +53,6 @@ import org.gradle.api.tasks.GroovySourceSet;
 import org.gradle.api.tasks.JavaExec;
 import org.gradle.api.tasks.ScalaSourceSet;
 import org.gradle.api.tasks.SourceSet;
-import org.gradle.api.tasks.Sync;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
 import org.gradle.api.tasks.compile.GroovyCompile;
@@ -61,6 +67,7 @@ import org.w3c.dom.NodeList;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
 public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin<T>
@@ -149,79 +156,100 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
     /**
      * Name of the source dependency.  eg: forgeSrc
      * may not include delayed tokens.
+     * @return the name of the recompiled dependency
      */
     protected abstract String getSrcDepName();
     /**
      * Name of the source dependency.  eg: forgeBin
      * may not include delayed tokens.
+     * @return the name of the bin-patched dependency
      */
     protected abstract String getBinDepName();
 
     /**
      * May invoke the extension object, or be hardcoded.
      * may not include delayed tokens.
+     * @return has an api version
      */
     protected abstract boolean hasApiVersion();
     /**
      * May invoke the extension object, or be hardcoded.
      * may not include delayed tokens.
+     * @param exten the extension object
+     * @return the api version
      */
     protected abstract String getApiVersion(T exten);
     /**
      * May invoke the extension object, or be hardcoded.
      * may not include delayed tokens.
+     * @param exten the extension object
+     * @return the MC version
      */
     protected abstract String getMcVersion(T exten);
     /**
      * May invoke the extension object, or be hardcoded.
      * This unlike the others, is evaluated as a delayed file, and may contain various tokens including:
      * {API_NAME} {API_VERSION} {MC_VERSION}
+     * @param exten the extension object
+     * @return the API cache dir
      */
     protected abstract String getApiCacheDir(T exten);
     /**
      * May invoke the extension object, or be hardcoded.
      * This unlike the others, is evaluated as a delayed file, and may contain various tokens including:
      * {API_NAME} {API_VERSION} {MC_VERSION}
+     * @param exten the extension object
+     * @return the SRG cache dir
      */
     protected abstract String getSrgCacheDir(T exten);
     /**
      * May invoke the extension object, or be hardcoded.
      * This unlike the others, is evaluated as a delayed file, and may contain various tokens including:
      * {API_NAME} {API_VERSION} {MC_VERSION}
+     * @param exten the extension object
+     * @return the userdev cache dir
      */
     protected abstract String getUserDevCacheDir(T exten);
     /**
      * This unlike the others, is evaluated as a delayed string, and may contain various tokens including:
      * {API_NAME} {API_VERSION} {MC_VERSION}
+     * @return the userdev dep string
      */
     protected abstract String getUserDev();
 
     /**
      * For run configurations. Is delayed.
+     * @return the client tweaker class name
      */
     protected abstract String getClientTweaker();
     /**
      * For run configurations. Is delayed.
+     * @return the server tweaker class name
      */
     protected abstract String getServerTweaker();
     /**
      * For run configurations
+     * @return the start location
      */
     protected abstract String getStartDir();
     /**
      * For run configurations. Is delayed.
+     * @return the client main class name
      */
     protected abstract String getClientRunClass();
     /**
      * For run configurations
+     * @return the client run arguments
      */
     protected abstract Iterable<String> getClientRunArgs();
     /**
      * For run configurations. Is delayed.
+     * @return the server main class name
      */
     protected abstract String getServerRunClass();
     /**
      * For run configurations
+     * @return the server run arguments
      */
     protected abstract Iterable<String> getServerRunArgs();
 
@@ -287,17 +315,11 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
 
         // special native stuff
         ExtractConfigTask extractNatives = makeTask("extractNatives", ExtractConfigTask.class);
-        extractNatives.setOut(delayedFile(NATIVES_DIR));
+        extractNatives.setOut(delayedFile(Constants.NATIVES_DIR));
         extractNatives.setConfig(CONFIG_NATIVES);
         extractNatives.exclude("META-INF/**", "META-INF/**");
         extractNatives.doesCache();
         extractNatives.dependsOn("extractUserDev");
-
-        // backwards compat natives copy
-        Sync copyNatives = makeTask("copyNativesLegacy", Sync.class);
-        copyNatives.from(delayedFile(NATIVES_DIR));
-        copyNatives.into(delayedFile(NATIVES_DIR_OLD));
-        copyNatives.dependsOn("extractNatives");
 
         // special gradleStart stuff
         project.getDependencies().add(CONFIG_START, project.files(delayedFile(getStartDir())));
@@ -332,6 +354,17 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
 
         project.getConfigurations().getByName("apiCompile").extendsFrom(project.getConfigurations().getByName("compile"));
         project.getConfigurations().getByName("testCompile").extendsFrom(project.getConfigurations().getByName("apiCompile"));
+        
+        // set compile not to take from libs
+        JavaCompile compileTask = ((JavaCompile)project.getTasks().getByName(main.getCompileJavaTaskName()));
+        List<String> args = compileTask.getOptions().getCompilerArgs();
+        if (args == null || args.isEmpty())
+        {
+            args = Lists.newArrayList();
+        }
+        args.add("-sourcepath");
+        args.add(".");
+        compileTask.getOptions().setCompilerArgs(args);
     }
 
     private void readAndApplyJson(File file, String depConfig, String nativeConfig, Logger log)
@@ -566,6 +599,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             task.setFieldsCsv(delayedFile(FIELD_CSV));
             task.setNotchToSrg(delayedFile(DEOBF_SRG_SRG));
             task.setNotchToMcp(delayedFile(DEOBF_MCP_SRG));
+            task.setSrgToMcp(delayedFile(DEOBF_SRG_MCP_SRG));
             task.setMcpToSrg(delayedFile(REOBF_SRG));
             task.setMcpToNotch(delayedFile(REOBF_NOTCH_SRG));
             task.setSrgExc(delayedFile(EXC_SRG));
@@ -623,29 +657,43 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             task.setSrg(delayedFile(REOBF_SRG));
             task.setFieldCsv(delayedFile(FIELD_CSV));
             task.setFieldCsv(delayedFile(METHOD_CSV));
+            task.setMcVersion(delayedString("{MC_VERSION}"));
 
             task.mustRunAfter("test");
             project.getTasks().getByName("assemble").dependsOn(task);
             project.getTasks().getByName("uploadArchives").dependsOn(task);
         }
 
-        // create start task and add it to the classpath and stuff
         {
-            // create task
-            CreateStartTask task =  makeTask("makeStart", CreateStartTask.class);
-            {
-                task.setAssetIndex(delayedString("{ASSET_INDEX}").forceResolving());
-                task.setAssetsDir(delayedFile("{CACHE_DIR}/minecraft/assets"));
-                task.setNativesDir(delayedFile(NATIVES_DIR));
-                task.setVersion(delayedString("{MC_VERSION}"));
-                task.setClientTweaker(delayedString("{RUN_CLIENT_TWEAKER}"));
-                task.setServerTweaker(delayedString("{RUN_SERVER_TWEAKER}"));
-                task.setClientBounce(delayedString("{RUN_BOUNCE_CLIENT}"));
-                task.setServerBounce(delayedString("{RUN_BOUNCE_SERVER}"));
-                task.setStartOut(delayedFile(getStartDir()));
-
-                task.dependsOn("extractUserDev", "getAssets", "getAssetsIndex", "copyNativesLegacy");
-            }
+            // create GradleStart
+            CreateStartTask task = makeTask("makeStart", CreateStartTask.class);
+            task.addResource("GradleStart.java");
+            task.addResource("GradleStartServer.java");
+            task.addResource("net/minecraftforge/gradle/GradleStartCommon.java");
+            task.addResource("net/minecraftforge/gradle/OldPropertyMapSerializer.java");
+            task.addResource("net/minecraftforge/gradle/tweakers/CoremodTweaker.java");
+            task.addResource("net/minecraftforge/gradle/tweakers/AccessTransformerTweaker.java");
+            task.addReplacement("@@MCVERSION@@", delayedString("{MC_VERSION}"));
+            task.addReplacement("@@ASSETINDEX@@", delayedString("{ASSET_INDEX}"));
+            task.addReplacement("@@ASSETSDIR@@", delayedFile("{CACHE_DIR}/minecraft/assets"));
+            task.addReplacement("@@NATIVESDIR@@", delayedFile(Constants.NATIVES_DIR));
+            task.addReplacement("@@SRGDIR@@", delayedFile("{SRG_DIR}"));
+            task.addReplacement("@@SRG_NOTCH_SRG@@", delayedFile(UserConstants.DEOBF_SRG_SRG));
+            task.addReplacement("@@SRG_NOTCH_MCP@@", delayedFile(UserConstants.DEOBF_MCP_SRG));
+            task.addReplacement("@@SRG_SRG_MCP@@", delayedFile(UserConstants.DEOBF_SRG_MCP_SRG));
+            task.addReplacement("@@SRG_MCP_SRG@@", delayedFile(UserConstants.REOBF_SRG));
+            task.addReplacement("@@SRG_MCP_NOTCH@@", delayedFile(UserConstants.REOBF_NOTCH_SRG));
+            task.addReplacement("@@CSVDIR@@", delayedFile("{MCP_DATA_DIR}"));
+            task.addReplacement("@@CLIENTTWEAKER@@", delayedString("{RUN_CLIENT_TWEAKER}"));
+            task.addReplacement("@@SERVERTWEAKER@@", delayedString("{RUN_SERVER_TWEAKER}"));
+            task.addReplacement("@@BOUNCERCLIENT@@", delayedString("{RUN_BOUNCE_CLIENT}"));
+            task.addReplacement("@@BOUNCERSERVER@@", delayedString("{RUN_BOUNCE_SERVER}"));
+            task.setStartOut(delayedFile(getStartDir()));
+            task.compileResources(CONFIG_DEPS);
+            
+            // see delayed task config for some more config
+            
+            task.dependsOn("extractUserDev", "getAssets", "getAssetsIndex", "extractNatives");
         }
 
         createPostDecompTasks();
@@ -1013,6 +1061,30 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
             repackageTask.setArchiveName(out.getName());
             repackageTask.setDestinationDir(out.getParentFile());
         }
+        
+        {
+            // because different versions of authlib
+            CreateStartTask task = (CreateStartTask) project.getTasks().getByName("makeStart");
+            
+            if (getMcVersion(getExtension()).startsWith("1.7")) // MC 1.7.X
+            {
+                if (getMcVersion(getExtension()).endsWith("10")) // MC 1.7.10
+                {
+                    task.addReplacement("//@@USERTYPE@@", "argMap.put(\"userType\", auth.getUserType().getName());");
+                    task.addReplacement("//@@USERPROP@@", "argMap.put(\"userProperties\", new GsonBuilder().registerTypeAdapter(com.mojang.authlib.properties.PropertyMap.class, new net.minecraftforge.gradle.OldPropertyMapSerializer()).create().toJson(auth.getUserProperties()));");
+                }
+                else
+                {
+                    task.removeResource("net/minecraftforge/gradle/OldPropertyMapSerializer.java");
+                }
+            }
+            else // MC 1.8 +
+            {
+                task.removeResource("net/minecraftforge/gradle/OldPropertyMapSerializer.java");
+                task.addReplacement("//@@USERTYPE@@", "argMap.put(\"userType\", auth.getUserType().getName());");
+                task.addReplacement("//@@USERPROP@@", "argMap.put(\"userProperties\", new GsonBuilder().registerTypeAdapter(com.mojang.authlib.properties.PropertyMap.class, new com.mojang.authlib.properties.PropertyMap.Serializer()).create().toJson(auth.getUserProperties()));");
+            }
+        }
 
         // Add the mod and stuff to the classpath of the exec tasks.
         final Jar jarTask = (Jar) project.getTasks().getByName("jar");
@@ -1064,6 +1136,8 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
 
     /**
      * Configure tasks and stuff after you know if the decomp file exists or not.
+     * @param decomp will decompile this task
+     * @param remove should remove old dependencies or not
      */
     protected void configurePostDecomp(boolean decomp, boolean remove)
     {
@@ -1114,6 +1188,7 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
     /**
      * Add Forge/FML ATs here.
      * This happens during normal evaluation, and NOT AfterEvaluate.
+     * @param task the deobfuscation task
      */
     protected abstract void configureDeobfuscation(ProcessJarTask task);
 
@@ -1125,9 +1200,10 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
 
     /**
      * Returns a file in the DirtyDir if the deobfuscation task is dirty. Otherwise returns the cached one.
-     * @param classifier
-     * @param ext
-     * @return
+     * @param name the name..
+     * @param classifier the classifier
+     * @param ext the extension
+     * @return delayed file
      */
     protected DelayedFile delayedDirtyFile(final String name, final String classifier, final String ext)
     {
@@ -1136,9 +1212,11 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
 
     /**
      * Returns a file in the DirtyDir if the deobfuscation task is dirty. Otherwise returns the cached one.
-     * @param classifier
-     * @param ext
-     * @return
+     * @param name the name..
+     * @param classifier the classifier
+     * @param ext the extension
+     * @param usesMappings whether or not MCP mappings are specified
+     * @return delayed file
      */
     @SuppressWarnings("serial")
     protected DelayedFile delayedDirtyFile(final String name, final String classifier, final String ext, final boolean usesMappings)
@@ -1167,10 +1245,6 @@ public abstract class UserBasePlugin<T extends UserExtension> extends BasePlugin
         };
     }
 
-    /**
-     * This extension object will have the name "minecraft"
-     * @return
-     */
     @SuppressWarnings("unchecked")
     protected Class<T> getExtensionClass()
     {

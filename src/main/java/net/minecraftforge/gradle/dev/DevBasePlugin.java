@@ -171,6 +171,7 @@ public abstract class DevBasePlugin extends BasePlugin<DevExtension>
             task6.setFieldsCsv(delayedFile(DevConstants.FIELDS_CSV));
             task6.setNotchToSrg(delayedFile(DevConstants.NOTCH_2_SRG_SRG));
             task6.setNotchToMcp(delayedFile(DevConstants.NOTCH_2_MCP_SRG));
+            task6.setSrgToMcp(delayedFile(DevConstants.SRG_2_MCP_SRG));
             task6.setMcpToSrg(delayedFile(DevConstants.MCP_2_SRG_SRG));
             task6.setMcpToNotch(delayedFile(DevConstants.MCP_2_NOTCH_SRG));
             task6.setSrgExc(delayedFile(DevConstants.SRG_EXC));
@@ -287,11 +288,18 @@ public abstract class DevBasePlugin extends BasePlugin<DevExtension>
 
         try
         {
-            Copy copyTask = makeTask("extractNatives", Copy.class);
+            ExtractTask extractNatives = makeTask("extractNativesNew", ExtractTask.class);
             {
-                copyTask.exclude("META-INF", "META-INF/**", "META-INF/*");
-                copyTask.into(delayedString(DevConstants.ECLIPSE_NATIVES).call());
-                copyTask.dependsOn("extractWorkspace");
+                extractNatives.exclude("META-INF", "META-INF/**", "META-INF/*");
+                extractNatives.into(delayedFile(Constants.NATIVES_DIR));
+            }
+            
+            Copy copyNatives = makeTask("extractNatives", Copy.class);
+            {
+                copyNatives.from(delayedFile(Constants.NATIVES_DIR));
+                copyNatives.exclude("META-INF", "META-INF/**", "META-INF/*");
+                copyNatives.into(delayedFile(DevConstants.ECLIPSE_NATIVES));
+                copyNatives.dependsOn("extractWorkspace", extractNatives);
             }
 
             DelayedFile devJson = getDevJson();
@@ -328,8 +336,8 @@ public abstract class DevBasePlugin extends BasePlugin<DevExtension>
                         task.setUrl(delayedString(lib.getUrl() + path));
                     }
 
-                    copyTask.from(delayedZipTree("{CACHE_DIR}/minecraft/" + path));
-                    copyTask.dependsOn(taskName);
+                    extractNatives.from(delayedFile("{CACHE_DIR}/minecraft/" + path));
+                    extractNatives.dependsOn(taskName);
                 }
             }
 

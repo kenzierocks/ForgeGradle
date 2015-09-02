@@ -9,7 +9,7 @@ final class DevConstants
 
     }
 
-    static final String INSTALLER_URL       = "http://files.minecraftforge.net/installer/forge-installer-{INSTALLER_VERSION}-shrunk.jar";
+    static final String INSTALLER_URL       = "http://files.minecraftforge.net/maven/net/minecraftforge/installer/{INSTALLER_VERSION}/installer-{INSTALLER_VERSION}-shrunk.jar";
     static final String LAUNCH4J_URL        = "http://files.minecraftforge.net/launch4j/launch4j-3.0.0-"+Constants.OPERATING_SYSTEM+"-"+Constants.SYSTEM_ARCH+".zip";
 
     static final String DEOBF_DATA          = "{CACHE_DIR}/minecraft/net/minecraft/minecraft_srg/{MC_VERSION}/deobfuscation_data-{MC_VERSION}.lzma";
@@ -20,6 +20,7 @@ final class DevConstants
     static final String REOBF_TMP           = "{BUILD_DIR}/tmp/recomp_obfed.jar";
     static final String MCP_2_SRG_SRG       = "{BUILD_DIR}/tmp/mcp2srg.srg";
     static final String MCP_2_NOTCH_SRG     = "{BUILD_DIR}/tmp/mcp2notch.srg";
+    static final String SRG_2_MCP_SRG       = "{BUILD_DIR}/tmp/srg2mcp.srg";
     static final String NOTCH_2_MCP_SRG     = "{BUILD_DIR}/tmp/notch2mcp.srg";
     static final String NOTCH_2_SRG_SRG     = "{BUILD_DIR}/tmp/notch2srg.srg";
     static final String SRG_EXC             = "{BUILD_DIR}/tmp/srg.exc";
@@ -97,12 +98,15 @@ final class DevConstants
     static final String WORKSPACE           = "eclipse";
     static final String ECLIPSE_CLEAN       = WORKSPACE + "/Clean";
     static final String ECLIPSE_CLEAN_SRC   = ECLIPSE_CLEAN + "/src/main/java";
+    static final String ECLIPSE_CLEAN_START = ECLIPSE_CLEAN + "/src/main/start";
     static final String ECLIPSE_CLEAN_RES   = ECLIPSE_CLEAN + "/src/main/resources";
     static final String ECLIPSE_FML         = WORKSPACE + "/FML";
     static final String ECLIPSE_FML_SRC     = ECLIPSE_FML + "/src/main/java";
+    static final String ECLIPSE_FML_START   = ECLIPSE_FML + "/src/main/start";
     static final String ECLIPSE_FML_RES     = ECLIPSE_FML + "/src/main/resources";
     static final String ECLIPSE_FORGE       = WORKSPACE + "/Forge";
     static final String ECLIPSE_FORGE_SRC   = ECLIPSE_FORGE + "/src/main/java";
+    static final String ECLIPSE_FORGE_START = ECLIPSE_FORGE + "/src/main/start";
     static final String ECLIPSE_FORGE_RES   = ECLIPSE_FORGE + "/src/main/resources";
     static final String ECLIPSE_CDN         = WORKSPACE + "/cauldron";
     static final String ECLIPSE_CDN_SRC     = ECLIPSE_CDN + "/src/main/java";
@@ -148,7 +152,7 @@ final class DevConstants
     // USED ONLY FOR Cauldron.. BUT ITS BUKKIT STUFF
     static final String BUKKIT_SOURCES     = "{BUKKIT_DIR}/src/main/java";
     static final String EXTRACTED_RES      = "{BUILD_DIR}/extractedResources";
-    
+
     // CrowdIn Stuff
     static final String CROWDIN_ZIP        = "{BUILD_DIR}/crowdin-localizations.zip";
     static final String CROWDIN_FORGEID    = "minecraft-forge";

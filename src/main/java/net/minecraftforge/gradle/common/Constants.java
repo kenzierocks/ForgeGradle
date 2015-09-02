@@ -2,10 +2,12 @@ package net.minecraftforge.gradle.common;
 
 import com.google.common.base.Joiner;
 import com.google.common.io.ByteStreams;
+
 import groovy.lang.Closure;
 import net.minecraftforge.gradle.StringUtils;
 import net.minecraftforge.gradle.dev.DevExtension;
 import net.minecraftforge.gradle.json.version.OS;
+
 import org.gradle.api.Project;
 
 import java.io.File;
@@ -38,6 +40,7 @@ public class Constants
     public static final OS               OPERATING_SYSTEM = OS.CURRENT;
     public static final SystemArch       SYSTEM_ARCH      = getArch();
     public static final String           HASH_FUNC        = "MD5";
+    public static final String           USER_AGENT       = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11";
 
     // extension nam
     public static final String EXT_NAME_MC      = "minecraft";
@@ -56,12 +59,12 @@ public class Constants
     public static final String FORGE_MAVEN      = "http://files.minecraftforge.net/maven";
     public static final String ASSETS_INDEX_URL = "https://s3.amazonaws.com/Minecraft.Download/indexes/{ASSET_INDEX}.json";
 
-    public static final String LOG              = ".gradle/gradle.log";
-
     // MCP things
     public static final String CONFIG_MCP_DATA  = "mcpSnapshotDataConfig";
+    public static final String MCP_JSON_URL     = "http://export.mcpbot.bspk.rs/versions.json";
 
     // things in the cache dir.
+    public static final String NATIVES_DIR      = "{CACHE_DIR}/minecraft/net/minecraft/minecraft_natives/{MC_VERSION}";
     public static final String MCP_DATA_DIR     = "{CACHE_DIR}/minecraft/de/oceanlabs/mcp/mcp_{MAPPING_CHANNEL}/{MAPPING_VERSION}/";
     public static final String JAR_CLIENT_FRESH = "{CACHE_DIR}/minecraft/net/minecraft/minecraft/{MC_VERSION}/minecraft-{MC_VERSION}.jar";
     public static final String JAR_SERVER_FRESH = "{CACHE_DIR}/minecraft/net/minecraft/minecraft_server/{MC_VERSION}/minecraft_server-{MC_VERSION}.jar";
@@ -152,9 +155,9 @@ public class Constants
         if (file.isDirectory())
         {
             for (File f : file.listFiles())
-                hashAll(f);
+                list.addAll(hashAll(f));
         }
-        else
+        else if (!file.getName().equals(".cache"))
             list.add(hash(file));
 
         return list;
@@ -247,15 +250,38 @@ public class Constants
         return null;
     }
 
-    public static PrintStream getTaskLogStream(Project project, String name) {
+    public static PrintStream getTaskLogStream(Project project, String name)
+    {
         final File taskLogs = new File(project.getBuildDir(), "taskLogs");
         taskLogs.mkdirs();
         final File logFile = new File(taskLogs, name);
         logFile.delete(); //Delete the old log
-        try {
+        try
+        {
             return new PrintStream(logFile);
-        } catch (FileNotFoundException ignored) {}
+        }
+        catch (FileNotFoundException ignored)
+        {}
         return null; // Should never get to here
     }
+    
+    /**
+     * Throws a null runtime exception if the resource isnt found.
+     * @param resource String name of the resource your looking for
+     * @return URL
+     */
+    public static URL getResource(String resource)
+    {
+        ClassLoader loader = BaseExtension.class.getClassLoader();
+        
+        if (loader == null)
+            throw new RuntimeException("ClassLoader is null! IMPOSSIBRU");
+        
+        URL url = loader.getResource(resource);
+        
+        if (url == null)
+            throw new RuntimeException("Resource "+resource+" not found");
+        
+        return url;
+    }
 }
-

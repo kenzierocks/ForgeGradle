@@ -12,7 +12,7 @@ public class ForgeUserPlugin extends UserPatchBasePlugin
     {
         return "forge";
     }
-    
+
     @Override
     protected String getApiGroup()
     {
@@ -25,7 +25,7 @@ public class ForgeUserPlugin extends UserPatchBasePlugin
         task.addTransformerClean(delayedFile(FML_AT));
         task.addTransformerClean(delayedFile(FORGE_AT));
     }
-    
+
     @Override
     protected void configurePatching(ProcessSrcJarTask patch)
     {
@@ -36,10 +36,10 @@ public class ForgeUserPlugin extends UserPatchBasePlugin
     @Override
     protected void doVersionChecks(int buildNumber)
     {
-        if (buildNumber < 1048)
-            throw new IllegalArgumentException("ForgeGradle 1.2 only works for Forge versions 10.12.0.1048+");
+        if (buildNumber != 0 && ( buildNumber < 1048 || buildNumber > 1502 ))
+            throw new IllegalArgumentException("ForgeGradle 1.2 only works for Forge versions 10.12.0.1048 -- 11.14.3.1503");
     }
-    
+
     @Override
     protected String getVersionsJsonUrl()
     {
